@@ -1,0 +1,38 @@
+.Rapp.history
+.RData
+.Rhistory
+.Rproj.user
+*.Rproj
+
+## module cache files
+cache/
+www/
+
+## file types by extension
+*.cpg
+*.csv
+!authorized_users.csv
+!animations.csv
+*.dbf
+*.prj
+*.pdf
+*.ini
+*.log
+*.ovr
+*.rds
+*.tar
+*.tfw
+*.tif
+*.xml
+*.zip
+*.shp
+*.shx
+*.sbn
+*.sbx
+
+## OAuth tokens
+.httr-oauth
+.httr-oauth-SUSPENDED
+
+## misc OS files
+Thumbs.db

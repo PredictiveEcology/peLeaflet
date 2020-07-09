@@ -1,7 +1,18 @@
+if (tolower(Sys.info()["sysname"])== "windows") {
+  if ((nchar(Sys.getenv("OSGEO4W_ROOT")) == 0) &
+      (nchar(Sys.getenv("PYTHONPATH")) == 0) &
+      (nchar(Sys.getenv("PYTHONHOME")) == 0 ))
+    if (!file.exists(file.path(Sys.getenv("PYTHONHOME"), "Scripts", "gdal2tiles.bat")))
+      stop("Must have OSGEO installed and 3 environment variables set to the correct places for example: \n",
+         "Sys.setenv('PYTHONPATH' = 'C:\\OSGeo4W64\\apps\\Python37')\n",
+         "Sys.setenv('PYTHONHOME' = 'C:\\OSGeo4W64\\apps\\Python37')\n",
+         "Sys.setenv('OSGEO4W_ROOT' = 'C:\\OSGeo4W64')\n",
+         "... and gdal2tiles.bat located in file.path(Sys.getenv('PYTHONHOME'), 'Scripts')")
+}
 # gdal2tiles.bat -z 2-10 -r bilinear C:\Eliot\data/LCC2005_V1_4a_BCR6_NWT.tif C:\Eliot\data/newTiles2/
 # system("gdal2tiles.bat -z 2-9 C:\\Eliot\\data/LCC2005_V1_4a_BCR6_NWT.tif C:\\Eliot\\data/newTiles3/")
 Require::Require(c("shiny", "leaflet", "RColorBrewer", "sf", "reproducible", "raster", "sp", "LandR",'rmapshaper',
-                   "leafgl"))
+                   "leafgl", "map"))
 options(reproducible.cachePath = "cache", reproducible.cacheSaveFormat = "qs")
 readBCR6 <- function(...) {
   BCR6 <- st_read(...)
@@ -27,7 +38,6 @@ prepInputsToSp <- function(...) {
 }
 
 getFires <- function(..., studyArea) {
-  # LCC <- prepInputsLCC(studyArea = studyArea)
   system.time(fires <- Cache(prepInputs, "NFDB_point_20190801.shp", destinationPath = "c:/Eliot/data", fun = "st_read_to_sp",
                              studyArea = studyArea, useCache = TRUE, overwrite = TRUE))
   fires <- spTransform(fires, sp::CRS("+init=epsg:4326"))
@@ -36,7 +46,16 @@ getFires <- function(..., studyArea) {
 }
 
 BCR6 <- Cache(prepInputs, url = "https://drive.google.com/file/d/1sScLiFW6eaFa1knVyT7ZasBEN9niE7ua/view?usp=sharing",
-              fun = "readBCR6", overwrite = TRUE)
+              fun = "readBCR6", overwrite = TRUE, purge = 7)
+
+LCCfilenameBase <- "LCC2005_V1_4a_NWT"
+if (!dir.exists(file.path("www", LCCfilenameBase))) {
+  LCC <- Cache(prepInputsLCC, studyArea = BCR6, filename2 = paste0(LCCfilenameBase, ".tif"))
+  map::makeTiles(file.path("www",LCCfilenameBase), obj = LCC, overwrite = TRUE)
+  #system(paste0("python ", file.path(Sys.getenv("PYTHONHOME"), "Scripts", "gdal2tiles.py"),
+  #             " -z 2-8 ", filename(LCC)," www/",LCCfilenameBase,"/"))
+}
+  
 fires <- Cache(getFires, studyArea = BCR6)
 
 nbac <- Cache(prepInputsToSp, url = "https://drive.google.com/file/d/1yChZJ1D9W141X0UXx4KMaUACRTA8CROK/view?usp=sharing",
@@ -78,14 +97,15 @@ server <- function(input, output, session) {
       addTiles(group = "OSM (default)") %>%
       addProviderTiles(providers$Stamen.Toner, group = "Toner") %>%
       addProviderTiles(providers$Stamen.TonerLite, group = "Toner Lite") %>%
-      addTiles(urlTemplate = "LCC_NWT/{z}/{x}/{y}.png", options = tileOptions(tms = TRUE),
+      addTiles(urlTemplate = paste0(LCCfilenameBase, "/{z}/{x}/{y}.png"), options = tileOptions(tms = TRUE),
                group = "Land Cover") %>%
       addLayersControl(
         baseGroups = c("OSM (default)", "Toner", "Toner Lite"),
         overlayGroups = c("Land Cover", "Fire Points", "Fire Polygons"),
         options = layersControlOptions(collapsed = FALSE)
       ) %>%
-      fitBounds(~min(LONGITUDE), ~min(LATITUDE), ~max(LONGITUDE), ~max(LATITUDE))
+      fitBounds(~min(LONGITUDE), ~min(LATITUDE), ~max(LONGITUDE), ~max(LATITUDE)) %>%
+      hideGroup("Fire Points")
   })
 
   # Incremental changes to the map (in this case, replacing the

@@ -4,10 +4,10 @@ if (tolower(Sys.info()["sysname"])== "windows") {
       (nchar(Sys.getenv("PYTHONHOME")) == 0 ))
     if (!file.exists(file.path(Sys.getenv("PYTHONHOME"), "Scripts", "gdal2tiles.bat")))
       stop("Must have OSGEO installed and 3 environment variables set to the correct places for example: \n",
-         "Sys.setenv('PYTHONPATH' = 'C:\\OSGeo4W64\\apps\\Python37')\n",
-         "Sys.setenv('PYTHONHOME' = 'C:\\OSGeo4W64\\apps\\Python37')\n",
-         "Sys.setenv('OSGEO4W_ROOT' = 'C:\\OSGeo4W64')\n",
-         "... and gdal2tiles.bat located in file.path(Sys.getenv('PYTHONHOME'), 'Scripts')")
+           "Sys.setenv('PYTHONPATH' = 'C:\\OSGeo4W64\\apps\\Python37')\n",
+           "Sys.setenv('PYTHONHOME' = 'C:\\OSGeo4W64\\apps\\Python37')\n",
+           "Sys.setenv('OSGEO4W_ROOT' = 'C:\\OSGeo4W64')\n",
+           "... and gdal2tiles.bat located in file.path(Sys.getenv('PYTHONHOME'), 'Scripts')")
 }
 # gdal2tiles.bat -z 2-10 -r bilinear C:\Eliot\data/LCC2005_V1_4a_BCR6_NWT.tif C:\Eliot\data/newTiles2/
 # system("gdal2tiles.bat -z 2-9 C:\\Eliot\\data/LCC2005_V1_4a_BCR6_NWT.tif C:\\Eliot\\data/newTiles3/")
@@ -30,7 +30,7 @@ st_read_to_sp <- function(...) {
 }
 prepInputsToSp <- function(...) {
   out <- Cache(prepInputs, url = "https://drive.google.com/file/d/1yChZJ1D9W141X0UXx4KMaUACRTA8CROK/view?usp=sharing",
-        overwrite = TRUE, fun = "st_read", studyArea = BCR6)
+               overwrite = TRUE, fun = "st_read", studyArea = BCR6)
   out <- out[, c("YEAR", "NFIREID", "FIRECAUS", "POLY_HA", "ADJ_HA", "AGENCY", "AFSDATE")]
   out <- Cache(ms_simplify, out)
   out <- sf::st_transform(out, sp::CRS("+init=epsg:4326"))
@@ -50,18 +50,19 @@ BCR6 <- Cache(prepInputs, url = "https://drive.google.com/file/d/1sScLiFW6eaFa1k
 
 LCCfilenameBase <- "LCC2005_V1_4a_NWT"
 if (!dir.exists(file.path("www", LCCfilenameBase))) {
+  LCC <- Cache(prepInputsLCC, filename2 = paste0(LCCfilenameBase, ".tif"))
   LCC <- Cache(prepInputsLCC, studyArea = BCR6, filename2 = paste0(LCCfilenameBase, ".tif"))
   map::makeTiles(file.path("www",LCCfilenameBase), obj = LCC, overwrite = TRUE)
   #system(paste0("python ", file.path(Sys.getenv("PYTHONHOME"), "Scripts", "gdal2tiles.py"),
   #             " -z 2-8 ", filename(LCC)," www/",LCCfilenameBase,"/"))
 }
-  
+
 fires <- Cache(getFires, studyArea = BCR6)
 
 nbac <- Cache(prepInputsToSp, url = "https://drive.google.com/file/d/1yChZJ1D9W141X0UXx4KMaUACRTA8CROK/view?usp=sharing",
               overwrite = TRUE, fun = "st_read", studyArea = BCR6)
 
- 
+
 ui <- bootstrapPage(
   tags$style(type = "text/css", "html, body {width:100%;height:100%}"),
   leafletOutput("map", width = "100%", height = "100%"),
@@ -77,18 +78,18 @@ ui <- bootstrapPage(
 )
 
 server <- function(input, output, session) {
-
+  
   # Reactive expression for the data subsetted to what the user selected
   filteredData <- reactive({
     fires[fires$SIZE_HA >= input$range[1] & fires$SIZE_HA <= input$range[2],]
   })
-
+  
   # This reactive expression represents the palette function,
   # which changes as the user makes selections in UI.
   colorpal <- reactive({
     colorNumeric(input$colors, fires$YEAR)
   })
-
+  
   output$map <- renderLeaflet({
     # Use leaflet() here, and only include aspects of the map that
     # won't need to change dynamically (at least, not unless the
@@ -107,21 +108,21 @@ server <- function(input, output, session) {
       fitBounds(~min(LONGITUDE), ~min(LATITUDE), ~max(LONGITUDE), ~max(LATITUDE)) %>%
       hideGroup("Fire Points")
   })
-
+  
   # Incremental changes to the map (in this case, replacing the
   # circles when a new color is chosen) should be performed in
   # an observer. Each independent set of things that can change
   # should be managed in its own observer.
   observe({
     pal <- colorpal()
-
+    
     leafletProxy("map", data = filteredData()) %>%
       clearGroup(group = "Fire Points") %>%
       addCircles(radius = ~10^log10(SIZE_HA/10), weight = 1, color = "#777777",
                  fillColor = ~pal(YEAR), fillOpacity = 0.7, popup = ~paste(SIZE_HA), group = "Fire Points"
       )
   })
-
+  
   observe({
     pal <- colorpal()
     
@@ -135,11 +136,11 @@ server <- function(input, output, session) {
                                                        "<br><strong> Fire Cause: </strong>", 
                                                        nbac$FIRECAUS)) 
   })
-    
+  
   # Use a separate observer to recreate the legend as needed.
   observe({
     proxy <- leafletProxy("map", data = fires)
-
+    
     # Remove any existing legend, and only if the legend is
     # enabled, create a new one.
     proxy %>% clearControls()
